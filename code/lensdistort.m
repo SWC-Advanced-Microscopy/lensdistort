@@ -1,0 +1,246 @@
+function outputIm = lensdistort(inputIm, k, varargin)
+% lensdistort corrects for barrel and pincusion lens abberations
+%
+%   outputIm = lensdistort(inputIm, k)
+%
+% Purpose
+%   lensdistort corrects for radially symmetric distortions, where
+%   inputIm is the input image and k is the distortion parameter. 
+%   Lens distortions can be one of two types: barrel distortion or 
+%   pincushion distortion.
+%   In the case of barrel distortion, image magnification decreases with 
+%   distance from the optical axis. The apparent effect is that of an image 
+%   which has been mapped around a sphere (or barrel). In the cases of 
+%   pincushion distortion, image magnification increases with the distance 
+%   from the optical axis. The visible effect is that lines that do not go 
+%   through the centre of the image are bowed inwards, towards the centre 
+%   of the image, like a pincushion [1]. 
+%
+%
+% Input arguments (required)
+%  inputIm - The image to be corrected. Can be uint8, int8, uint16, int16, uint32,
+%   int32, single, double, or logical. An input indexed image can be uint8,
+%   uint16, single, double, or logical.
+%
+%  k - signed scalar or vector of length 2 defining the distortion correction to apply.
+%      If a scalar, the same degree of correction is applied to both axes. If a 
+%      vector of length 2 it applies different corrections to the rows and columns:
+%      [k_row,k_column]. A value of zero produces no correction along that axis.
+%
+%
+% Input arguments (optional parameter/value pairs)
+%
+%   'borderType'            String that controls the treatment of the image
+%                           edges. Valid strings are 'fit' and 'crop'. By 
+%                           default, 'borderType' is set to 'crop'. 
+%
+%   'interpMethod'         String that specifies the interpolating kernel 
+%                           that the separable resampler uses. Valid
+%                           strings are 'cubic', 'linear' and 'nearest'. By
+%                           default, the 'interpolation' is set to 'linear'
+%
+%   'padMethod'             string that controls how the resampler 
+%                           interpolates or assigns values to output elements 
+%                           that map close to or outside the edge of the input 
+%                           array. Valid strings are 'bound', circular',
+%                           'fill', 'replicate', and symmetric'. By
+%                           default, the 'padMethod' is set to 'fill'
+%
+%   'fType'                 Integer between 1 and 4 that specifies the
+%                           distortion model to be used. The models
+%                           available are
+%
+%                           1:    s = r.*(1./(1+k.*r));
+%                           2:    s = r.*(1./(1+k.*(r.^2)));
+%                           3:    s = r.*(1+k.*r);
+%                           4:    s = r.*(1+k.*(r.^2)); % DEFAULT
+%
+%
+%   Examples
+%   --------
+%       inputIm = imread('cameraman.tif');
+%       outputIm = lensdistort(inputIm, 0.1); % apply distortion along both rows and columns
+%       imshow(inputIm), figure, imshow(outputIm)
+%
+%       outputIm = lensdistort(inputIm, [0,0.1]); % apply distortion along rows only
+%       imshow(inputIm), figure, imshow(outputIm)
+%
+%
+%   References
+%   --------------
+%   [1] http://en.wikipedia.org/wiki/Distortion_(optics), August 2012.
+%
+%   [2] Harri Ojanen, "Automatic Correction of Lens Distortion by Using
+%       Digital Image Processing," July 10, 1999.
+%
+%   [3] G.Vassy and T.Perlaki, "Applying and removing lens distortion in post 
+%       production," year???
+%
+%   [4] http://www.mathworks.com/products/demos/image/...
+%       create_gallery/tform.html#34594, August 2012.
+%
+%   Created by Jaap de Vries, 8/31/2012
+%   jpdvrs@yahoo.com
+
+
+
+%-------------------------------------------------------------------------
+% Parse input arguments
+
+p = inputParser;
+p.CaseSensitive = false;
+
+% Specifies the required inputs
+addRequired(p,'inputIm',@isnumeric);
+addRequired(p,'k',@isnumeric);
+
+% Sets the default values for the optional parameters
+defaultFtype = 4;
+defaultBorder = 'crop';
+defaultInterpolation = 'linear';
+defaultPadmethod = 'fill';
+
+% Specifies valid strings for the optional parameters
+validBorder = {'fit','crop'};
+validInterpolation = {'cubic','linear', 'nearest'};
+validPadmethod = {'bound','circular', 'fill', 'replicate', 'symmetric'};
+
+
+% Create optional inputs whilst checking for validity
+addParameter(p,'borderType',defaultBorder, @(x) any(validatestring(x,validBorder)) );
+addParameter(p,'interpMethod',defaultInterpolation, @(x) any(validatestring(x,validInterpolation)) );
+addParameter(p,'padMethod',defaultPadmethod, @(x) any(validatestring(x,validPadmethod)) );
+addParameter(p,'fType',defaultFtype,@isnumeric);
+
+% Pass all parameters and input to the parse method
+parse(p,inputIm,k,varargin{:});
+
+borderType = p.Results.borderType;
+interpMethod = p.Results.interpMethod;
+padMethod = p.Results.padMethod;
+fType = p.Results.fType;
+
+%Make zeros in k very small numbers instead otherwise the correction fails
+%and ensure k has a length of 2 regardless of what the user asked for. 
+if length(k)==1
+    k=repmat(k,1,2);
+end
+k(k==0) = 1E-9;
+
+
+%-------------------------------------------------------------------------
+% This determines whether its a color (M,N,3) or gray scale (M,N,1) image
+if ndims(inputIm) == 3
+    outputIm = zeros(size(inputIm), class(inputIm));
+    for ii=1:3
+        outputIm(:,:,ii) = imDistCorrect(inputIm(:,:,ii),k);
+    end
+elseif ismatrix(inputIm)
+    outputIm = imDistCorrect(inputIm,k);
+else
+    error('Unknown image dimensions')
+end
+
+
+
+
+%-------------------------------------------------------------------------
+% Nested functions follow
+
+    function correctedImage = imDistCorrect(inputIm,k)
+        % imDistCorrect performs the transformation
+
+        % Determine the size of the image to be distorted
+        [M,N]=size(inputIm);
+        centre = [round(N/2), round(M/2)];
+
+        [xi,yi] = meshgrid(1:N,1:M); % Create N x M (#pixels) x-y points
+
+        %  Convert the mesh into a column vector of coordinates relative to the centre
+        xt = xi(:) - centre(1);
+        yt = yi(:) - centre(2);
+
+        [theta,r] = cart2pol(xt,yt); % Convert the x-y coordinates to polar coordinates
+
+        % maxR is the maximum vector length (image centre to image corner)
+        maxR = sqrt(centre(1)^2 + centre(2)^2);
+
+        r = r/maxR; % Normalize the polar coordinate "r" based on maxR
+
+
+        % Apply distortion to rows
+        s = distortFun(r,k(1),fType);  % Apply the r-based transformation
+        s2 = s * maxR; % un-normalize s
+        brcor = borderCorrect(r,s,k(1), centre, maxR);
+        s2 = s2 * brcor;
+        ut = pol2cart(theta,s2); % Convert back to Cartesian coordinates
+        xid = reshape(ut,size(xi)) + centre(1); %pixel shifts along columns (the distorted version of xi)
+
+
+        % Apply distortion to columns
+        s = distortFun(r,k(2),fType);  % Apply the r-based transformation
+        s2 = s * maxR; % un-normalize s
+        brcor = borderCorrect(r,s,k(2), centre, maxR);
+        s2 = s2 * brcor;
+        [~,vt] = pol2cart(theta,s2); % Convert back to Cartesian coordinates
+        yid = reshape(vt,size(yi)) + centre(2); %pixel shifts along rows (the distorted version of yi)
+
+
+        tmap_B = cat(3,xid,yid);
+        resamp = makeresampler(interpMethod, padMethod);
+        correctedImage = tformarray(inputIm,[],resamp,[2 1],[1 2],[],tmap_B,255);
+    end %imDistCorrect
+
+
+
+    function s = distortFun(r,k,fcNum)
+        % distortFun returns the model type to be used
+        %
+        % r - normalised radius value in polar coordinates
+        % k - correction factor for distortion
+        % fcNum - The correction function to apply
+
+        switch fcNum
+            case(1)
+                s = r.*(1./(1+k.*r));
+            case(2)
+                s = r.*(1./(1+k.*(r.^2)));
+            case(3)
+                s = r.*(1+k.*r);
+            case(4)
+                s = r.*(1+k.*(r.^2));
+            otherwise
+                error('Distortion function "%d" is unknown', fcNum)
+        end %switch
+    end %distortFun
+
+
+
+    function x = borderCorrect(r,s,k,centre, maxR)
+        % borderCorrect creates a scaling parameter based on the 'borderType' selected
+        %
+        % r - normalised radius value in polar coordinates
+        % s - the transformed (see distortFun) normalised radius value in polar coordinates
+        % k - correction factor for distortion
+        % centre - coordinates of the image centre
+        % maxR - the maximum vector length (image centre to image corner) used to normalise r
+
+        if k < 0
+            if strcmp(borderType, 'fit')
+               x = r(1)/s(1); 
+            end
+            if strcmp(borderType, 'crop')
+               x = 1/(1 + k*(min(centre)/maxR)^2);
+            end
+        elseif k > 0
+            if strcmp(borderType, 'fit')
+               x = 1/(1 + k*(min(centre)/maxR)^2);
+            end
+            if strcmp(borderType, 'crop')
+               x = r(1)/s(1);
+            end
+        end
+    end %borderCorrect
+
+
+end %lensdistort

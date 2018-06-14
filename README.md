@@ -5,7 +5,7 @@ The code is slightly neatened, default interpolation is set to `linear`, and it'
 
 
 ```
-c=(checker_board(25,30));
+c=checkerboard(25,30);
 inputIm = c(:,:,1)*2^8;
  
 figure

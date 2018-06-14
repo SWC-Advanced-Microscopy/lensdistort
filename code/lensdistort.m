@@ -58,12 +58,14 @@ function outputIm = lensdistort(inputIm, k, varargin)
 %
 %   Examples
 %   --------
-%       inputIm = imread('cameraman.tif');
-%       outputIm = lensdistort(inputIm, 0.1); % apply distortion along both rows and columns
-%       imshow(inputIm), figure, imshow(outputIm)
+%       c=(checker_board(25,30));
+%       inputIm = c(:,:,1)*2^8;
 %
-%       outputIm = lensdistort(inputIm, [0,0.1]); % apply distortion along rows only
-%       imshow(inputIm), figure, imshow(outputIm)
+%       figure
+%       subplot(2,2,1), imagesc(inputIm), title('orig')
+%       subplot(2,2,2), imagesc(lensdistort(inputIm, 0.2)), title('barrel')
+%       subplot(2,2,3), imagesc(lensdistort(inputIm, -0.2)), title('pincushion')
+%       subplot(2,2,4), imagesc(lensdistort(inputIm,[ -0.2,0.4])), title('both')
 %
 %
 %   References

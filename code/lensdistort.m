@@ -39,17 +39,19 @@ function outputIm = lensdistort(inputIm, k, varargin)
 %                           strings are 'cubic', 'linear' and 'nearest'. By
 %                           default, the 'interpolation' is set to 'linear'
 %
-%   'padMethod'             string that controls how the resampler 
+%   'padMethod'             String that controls how the resampler 
 %                           interpolates or assigns values to output elements 
 %                           that map close to or outside the edge of the input 
 %                           array. Valid strings are 'bound', circular',
 %                           'fill', 'replicate', and symmetric'. By
 %                           default, the 'padMethod' is set to 'fill'
 %
+%.   'padValue'             Scalar defining the value with which the image the will be padded.
+%                           By default this will be the minimum value found in the image.
+%
 %   'fType'                 Integer between 1 and 4 that specifies the
 %                           distortion model to be used. The models
-%                           available are
-%
+%                           available are:
 %                           1:    s = r.*(1./(1+k.*r));
 %                           2:    s = r.*(1./(1+k.*(r.^2)));
 %                           3:    s = r.*(1+k.*r);
@@ -58,7 +60,7 @@ function outputIm = lensdistort(inputIm, k, varargin)
 %
 %   Examples
 %   --------
-%       c=(checker_board(25,30));
+%       c=checkerboard(25,30);
 %       inputIm = c(:,:,1)*2^8;
 %
 %       figure
@@ -83,7 +85,12 @@ function outputIm = lensdistort(inputIm, k, varargin)
 %
 %   Created by Jaap de Vries, 8/31/2012
 %   jpdvrs@yahoo.com
-
+%
+% Modifications
+% - Separate k for rows and columns (R. Campbell, June 2018)
+% - Neaten, update examples, etc (R. Campbell, June 2018)
+% - Set default interpolator to linear (R. Campbell, June 2018)
+% - Allow the padding value to be set via an input argument
 
 
 %-------------------------------------------------------------------------
@@ -96,23 +103,15 @@ p.CaseSensitive = false;
 addRequired(p,'inputIm',@isnumeric);
 addRequired(p,'k',@isnumeric);
 
+
 % Sets the default values for the optional parameters
-defaultFtype = 4;
-defaultBorder = 'crop';
-defaultInterpolation = 'linear';
-defaultPadmethod = 'fill';
-
-% Specifies valid strings for the optional parameters
-validBorder = {'fit','crop'};
-validInterpolation = {'cubic','linear', 'nearest'};
-validPadmethod = {'bound','circular', 'fill', 'replicate', 'symmetric'};
+addParameter(p,'borderType','crop', @(x) any(validatestring(x,{'fit','crop'})) );
+addParameter(p,'interpMethod','linear', @(x) any(validatestring(x, {'cubic','linear', 'nearest'})) );
+addParameter(p,'padMethod','fill', @(x) any(validatestring(x,{'bound','circular', 'fill', 'replicate', 'symmetric'})) );
+addParameter(p,'fType',4,@isnumeric);
+addParameter(p,'padValue', min(inputIm(:)), @isnumeric);
 
 
-% Create optional inputs whilst checking for validity
-addParameter(p,'borderType',defaultBorder, @(x) any(validatestring(x,validBorder)) );
-addParameter(p,'interpMethod',defaultInterpolation, @(x) any(validatestring(x,validInterpolation)) );
-addParameter(p,'padMethod',defaultPadmethod, @(x) any(validatestring(x,validPadmethod)) );
-addParameter(p,'fType',defaultFtype,@isnumeric);
 
 % Pass all parameters and input to the parse method
 parse(p,inputIm,k,varargin{:});
@@ -121,6 +120,8 @@ borderType = p.Results.borderType;
 interpMethod = p.Results.interpMethod;
 padMethod = p.Results.padMethod;
 fType = p.Results.fType;
+padValue = p.Results.padValue;
+
 
 %Make zeros in k very small numbers instead otherwise the correction fails
 %and ensure k has a length of 2 regardless of what the user asked for. 
@@ -190,7 +191,7 @@ end
 
         tmap_B = cat(3,xid,yid);
         resamp = makeresampler(interpMethod, padMethod);
-        correctedImage = tformarray(inputIm,[],resamp,[2 1],[1 2],[],tmap_B,255);
+        correctedImage = tformarray(inputIm,[],resamp,[2 1],[1 2],[],tmap_B, padValue);
     end %imDistCorrect
 
 

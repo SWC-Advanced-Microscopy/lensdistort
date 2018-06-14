@@ -19,7 +19,7 @@ function outputIm = lensdistort(inputIm, k, varargin)
 % Input arguments (required)
 %  inputIm - The image to be corrected. Can be uint8, int8, uint16, int16, uint32,
 %   int32, single, double, or logical. An input indexed image can be uint8,
-%   uint16, single, double, or logical.
+%   uint16, single, double, or logical. inputIm can be an image stack also. 
 %
 %  k - signed scalar or vector of length 2 defining the distortion correction to apply.
 %      If a scalar, the same degree of correction is applied to both axes. If a 
@@ -90,7 +90,7 @@ function outputIm = lensdistort(inputIm, k, varargin)
 % - Neaten, update examples, etc (R. Campbell, June 2018)
 % - Set default interpolator to linear (R. Campbell, June 2018)
 % - Allow the padding value to be set via an input argument
-
+% - Allow inputIm to be an image stack and process it in one go for speed.
 
 %-------------------------------------------------------------------------
 % Parse input arguments
@@ -132,16 +132,8 @@ k(k==0) = 1E-9;
 
 %-------------------------------------------------------------------------
 % This determines whether its a color (M,N,3) or gray scale (M,N,1) image
-if ndims(inputIm) == 3
-    outputIm = zeros(size(inputIm), class(inputIm));
-    for ii=1:3
-        outputIm(:,:,ii) = imDistCorrect(inputIm(:,:,ii),k);
-    end
-elseif ismatrix(inputIm)
-    outputIm = imDistCorrect(inputIm,k);
-else
-    error('Unknown image dimensions')
-end
+outputIm = imDistCorrect(inputIm,k);
+
 
 
 
@@ -153,7 +145,7 @@ end
         % imDistCorrect performs the transformation
 
         % Determine the size of the image to be distorted
-        [M,N]=size(inputIm);
+        [M,N,~]=size(inputIm);
         centre = [round(N/2), round(M/2)];
 
         [xi,yi] = meshgrid(1:N,1:M); % Create N x M (#pixels) x-y points

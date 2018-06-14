@@ -4,17 +4,16 @@ function outputIm = lensdistort(inputIm, k, varargin)
 %   outputIm = lensdistort(inputIm, k)
 %
 % Purpose
-%   lensdistort corrects for radially symmetric distortions, where
-%   inputIm is the input image and k is the distortion parameter. 
-%   Lens distortions can be one of two types: barrel distortion or 
-%   pincushion distortion.
-%   In the case of barrel distortion, image magnification decreases with 
-%   distance from the optical axis. The apparent effect is that of an image 
-%   which has been mapped around a sphere (or barrel). In the cases of 
-%   pincushion distortion, image magnification increases with the distance 
-%   from the optical axis. The visible effect is that lines that do not go 
-%   through the centre of the image are bowed inwards, towards the centre 
-%   of the image, like a pincushion [1]. 
+%   lensdistort corrects for radially symmetric distortions in image "inputIm" using
+%.  distortion parameter "k". Allowed lens distortions can be one of two types: 
+%   a) Barrel distortion, where image magnification decreases with distance from the 
+%      optical axis. The apparent effect is that of an image which has been mapped 
+%      around a sphere (or barrel). Lines that do not go through the centre of the
+%      image are outwards.
+%   b) Pincushion distortion, where image magnification increases with the distance 
+%      from the optical axis. The visible effect is that lines that do not go through 
+%      the centre of the image are bowed inwards, towards the centre of the image, 
+%      like a pincushion [1]. 
 %
 %
 % Input arguments (required)
@@ -46,7 +45,7 @@ function outputIm = lensdistort(inputIm, k, varargin)
 %                           'fill', 'replicate', and symmetric'. By
 %                           default, the 'padMethod' is set to 'fill'
 %
-%.   'padValue'             Scalar defining the value with which the image the will be padded.
+%    'padValue'             Scalar defining the value with which the image the will be padded.
 %                           By default this will be the minimum value found in the image.
 %
 %   'fType'                 Integer between 1 and 4 that specifies the

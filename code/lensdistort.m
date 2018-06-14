@@ -107,7 +107,7 @@ addRequired(p,'k',@isnumeric);
 addParameter(p,'borderType','crop', @(x) any(validatestring(x,{'fit','crop'})) );
 addParameter(p,'interpMethod','linear', @(x) any(validatestring(x, {'cubic','linear', 'nearest'})) );
 addParameter(p,'padMethod','fill', @(x) any(validatestring(x,{'bound','circular', 'fill', 'replicate', 'symmetric'})) );
-addParameter(p,'fType',4,@isnumeric);
+addParameter(p,'fType',4, @isnumeric);
 addParameter(p,'padValue', min(inputIm(:)), @isnumeric);
 
 
@@ -131,7 +131,7 @@ k(k==0) = 1E-9;
 
 
 %-------------------------------------------------------------------------
-% This determines whether its a color (M,N,3) or gray scale (M,N,1) image
+% Run the correction
 outputIm = imDistCorrect(inputIm,k);
 
 

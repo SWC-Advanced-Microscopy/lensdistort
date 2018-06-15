@@ -5,7 +5,7 @@ function outputIm = lensdistort(inputIm, k, varargin)
 %
 % Purpose
 %   lensdistort corrects for radially symmetric distortions in image "inputIm" using
-%.  distortion parameter "k". Allowed lens distortions can be one of two types: 
+%   distortion parameter "k". Allowed lens distortions can be one of two types: 
 %   a) Barrel distortion, where image magnification decreases with distance from the 
 %      optical axis. The apparent effect is that of an image which has been mapped 
 %      around a sphere (or barrel). Lines that do not go through the centre of the
@@ -56,6 +56,9 @@ function outputIm = lensdistort(inputIm, k, varargin)
 %                           3:    s = r.*(1+k.*r);
 %                           4:    s = r.*(1+k.*(r.^2)); % DEFAULT
 %
+%   'affineMat'             If supplied, the distortion matrices are both transformed by this
+%                           affine matrix. No error checks on its correctness.
+%                           e.g. to shear: [1,0,0; 0.125,1,0; 0,0,1]
 %
 %   Examples
 %   --------
@@ -89,8 +92,10 @@ function outputIm = lensdistort(inputIm, k, varargin)
 % - Separate k for rows and columns (R. Campbell, June 2018)
 % - Neaten, update examples, etc (R. Campbell, June 2018)
 % - Set default interpolator to linear (R. Campbell, June 2018)
-% - Allow the padding value to be set via an input argument
-% - Allow inputIm to be an image stack and process it in one go for speed.
+% - Allow the padding value to be set via an input argument (R. Campbell, June 2018)
+% - Allow inputIm to be an image stack and process it in one go for speed.(R. Campbell, June 2018)
+% - Affine transformation along with distortion correction.(R. Campbell, June 2018)
+
 
 %-------------------------------------------------------------------------
 % Parse input arguments
@@ -109,7 +114,7 @@ addParameter(p,'interpMethod','linear', @(x) any(validatestring(x, {'cubic','lin
 addParameter(p,'padMethod','fill', @(x) any(validatestring(x,{'bound','circular', 'fill', 'replicate', 'symmetric'})) );
 addParameter(p,'fType',4, @isnumeric);
 addParameter(p,'padValue', min(inputIm(:)), @isnumeric);
-
+addParameter(p,'affineMat',[],@isnumeric)
 
 
 % Pass all parameters and input to the parse method
@@ -120,7 +125,7 @@ interpMethod = p.Results.interpMethod;
 padMethod = p.Results.padMethod;
 fType = p.Results.fType;
 padValue = p.Results.padValue;
-
+affineMat = p.Results.affineMat;
 
 %Make zeros in k very small numbers instead otherwise the correction fails
 %and ensure k has a length of 2 regardless of what the user asked for. 
@@ -181,8 +186,21 @@ outputIm = imDistCorrect(inputIm,k);
 
 
         tmap_B = cat(3,xid,yid);
+
+        if ~isempty(affineMat)
+            tform = affine2d(affineMat);
+            tmap_B = imwarp(tmap_B,tform);
+
+            %We crop the image about the centre to keep it the same size
+            Mind = (1:M) + floor((size(tmap_B,2)-M)/2);
+            Nind = (1:N) + floor((size(tmap_B,1)-N)/2);
+            tmap_B = tmap_B(Nind,Mind,:);
+        end
+
+
         resamp = makeresampler(interpMethod, padMethod);
         correctedImage = tformarray(inputIm,[],resamp,[2 1],[1 2],[],tmap_B, padValue);
+
     end %imDistCorrect
 
 

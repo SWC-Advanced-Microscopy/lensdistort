@@ -7,6 +7,7 @@ The present code has been modified in the following ways:
 * The padding value defaults to image minimum and can be modified via an input argument.
 * It's possible to set a different value of `k` for rows and columns (see example below).
 * An image stack can be supplied and this is processesed more efficiently by feeding the whole stack as an input to `tformarray`. 
+* Affine transformation along with distortion correction.
 
 
 ```

@@ -124,7 +124,7 @@ borderType = p.Results.borderType;
 interpMethod = p.Results.interpMethod;
 padMethod = p.Results.padMethod;
 fType = p.Results.fType;
-padValue = p.Results.padValue;
+padValue = double(p.Results.padValue);
 affineMat = p.Results.affineMat;
 
 %Make zeros in k very small numbers instead otherwise the correction fails
